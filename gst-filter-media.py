@@ -2,6 +2,7 @@
 
 # flake8: noqa
 
+import argparse
 import pathlib
 import sys
 import traceback
@@ -42,17 +43,29 @@ def on_discovered(*args, **kw):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("usage %s <input file> [<output file>]" % sys.argv[0])
-        sys.exit(1)
 
-    infile = pathlib.Path(sys.argv[1])
+    parser = argparse.ArgumentParser(
+        description="""\
+""")
+    parser.add_argument(
+        "pipeline",
+        help="gstreamer pipeline element description")
+    parser.add_argument(
+        "input",
+        help="Filename of input media.")
+    parser.add_argument(
+        "output",
+        nargs='?',
+        help="Filename for output media.")
+    args = parser.parse_args()
+
+    infile = pathlib.Path(args.input)
     assert infile.exists(), f"{infile} does not exist!"
-    if len(sys.argv) > 2:
-        outfile = pathlib.Path(sys.argv[2])
-    else:
-        outfile = infile.parent / (infile.stem + '.out' + infile.suffix)
 
+    if not args.output:
+        args.output = infile.parent / (infile.stem + '.out' + infile.suffix)
+
+    outfile = pathlib.Path(args.output)
     assert not outfile.exists(), f"{outfile} exists - not over writing!"
 
     infile_uri = 'file://'+str(infile.resolve())
@@ -97,7 +110,7 @@ filesrc location={str(infile.resolve())}
 encodebin2 name=e
 ! filesink location={str(outfile.resolve())}
 
-videoconvert name=vc_i ! timeoverlay ! videoconvert name=vc_o
+videoconvert name=vc_i ! {args.pipeline} ! videoconvert name=vc_o
 """
     print("\npipeline", "-"*50)
     print(pipeline_str)
@@ -154,7 +167,6 @@ videoconvert name=vc_i ! timeoverlay ! videoconvert name=vc_o
 
     # Stop Pipeline
     pipeline.set_state(Gst.State.NULL)
-
     return
 
 
